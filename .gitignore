@@ -1,0 +1,9 @@
+.project
+.pydevproject
+.settings/
+.metadata/
+experiments/
+aplx/*.o
+aplx/*.txt
+aplx/*.elf
+

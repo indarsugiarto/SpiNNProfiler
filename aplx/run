@@ -1,0 +1,9 @@
+#! /bin/bash
+# iptag 2 for generic purpose
+# iptag 3 for reporting
+
+ybugMyBoard << EOF
+iptag 2 set . 20000
+iptag 3 set . 20001
+app_load profiler.aplx all 17 255
+EOF

@@ -197,10 +197,25 @@ class TPlot(Qwt.QwtPlot):
     
     @QtCore.pyqtSlot()
     def readSDP(self, datagram):       
+        """
         fmt = "<HQ2H3I18I"
         pad, hdr, cmd, seq, temp1, temp2, temp3, cpu0, cpu1, cpu2, cpu3, cpu4, cpu5, cpu6, cpu7, cpu8, cpu9, cpu10, cpu11, cpu12, cpu13, cpu14, cpu15, cpu16, cpu17 = struct.unpack(fmt, datagram)
         sax = seq >> 8
         say = seq & 0xFF
+        """
+        
+        fmt = "<H4BH2B2H3I18I"
+        pad, flags, tag, dp, sp, da, sax, say, cmd, freq, temp1, temp2, temp3, cpu0, cpu1, cpu2, cpu3, cpu4, cpu5, cpu6, cpu7, cpu8, cpu9, cpu10, cpu11, cpu12, cpu13, cpu14, cpu15, cpu16, cpu17 = struct.unpack(fmt, datagram)
+
+        """## debugging: who's the sender?
+        fmt = "<H4BH2B2H3I18I"
+        pad, flags, tag, dp, sp, da, sx, sy, cmd, seq, temp1, temp2, temp3, cpu0, cpu1, cpu2, cpu3, cpu4, cpu5, cpu6, cpu7, cpu8, cpu9, cpu10, cpu11, cpu12, cpu13, cpu14, cpu15, cpu16, cpu17 = struct.unpack(fmt, datagram)
+        core = sp & 0x1f
+        port = sp >> 5
+        print "Data from [%d,%d,%d:%d]" % (sx,sy,core,port)
+        ##end debugging: who's the sender?
+        """
+        
         chipID = sax*2+say
         self.t[chipID] = concatenate((self.t[chipID][:1], self.t[chipID][:-1]), 1)
         self.d[chipID] = concatenate((self.d[chipID][:1], self.d[chipID][:-1]), 1)
@@ -243,11 +258,10 @@ class TPlot(Qwt.QwtPlot):
         #self.setAxisAutoScale(Qwt.QwtPlot.yLeft)
         self.replot()
 
-        if self.saveToFile is True:           
+        if self.saveToFile is True:
+            seq = sax * 2 + say           
             tVal = "{},{},{},{}\n".format(seq, temp1, temp2, temp3)
-            sax = seq >> 8
-            say = seq & 0xFF
-            self.Tfiles[sax*2+say].write(tVal)
+            self.Tfiles[seq].write(tVal)
     
     def timerEvent(self, e):
         return
@@ -327,6 +341,7 @@ class TPlot(Qwt.QwtPlot):
         if state is True:
             for i in range(self.nChip):
                 fName = dirName + '/temp.' + str(i)
+                print "Creating file {}".format(fName)
                 self.Tfiles[i] = open(fName, 'w')
             self.saveToFile = True
 

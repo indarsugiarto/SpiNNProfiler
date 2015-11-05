@@ -81,6 +81,7 @@ class mainWidget(QtGui.QWidget):
             szData = self.RptSock.pendingDatagramSize()
             datagram, host, port = self.RptSock.readDatagram(szData)
             self.sdpUpdate.emit(datagram)
+            
 
     def initTubSock(self, port):
         print "Try opening port-{} for Tubotron...".format(port),
@@ -125,12 +126,9 @@ class mainWidget(QtGui.QWidget):
         self.tub.close()
 
     def cbSaveToggled(self):
-        if self.cbSave.isChecked():
-            print "checked"
-        else:
-            print "unchecked"
         dt = datetime.now() #Profiler-14.8.2015-22.10
         dirName = "../experiments/Profiler-%d.%d.%d-%d.%d" % (dt.day, dt.month, dt.year, dt.hour, dt.minute)
+        dirName = "experiments/Profiler-%d.%d.%d-%d.%d" % (dt.day, dt.month, dt.year, dt.hour, dt.minute)
         if self.cbSave.isChecked():
             os.mkdir(dirName, 0755)
             self.tw.saveToFileTriggered(True, dirName)

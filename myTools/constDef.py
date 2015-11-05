@@ -33,6 +33,9 @@ MIN_T_SCALE_Y_DEG = 20
 MIN_T_SCALE_Y_INT = 5000
 MAX_T_SCALE_Y_INT = 12000
 
+MAX_U_SCALE_AT_250 = 36330  # if I change priority level, I can get also 38050
+MAX_U_SCALE_AT_10 = 1480    # again, different priority level will produce different value, eg. 1550
+
 """
 My own experiment-4 (old): 
 Chip    f=10MHz                 f=250Mhz                Regression
@@ -54,10 +57,17 @@ Chip    f=10MHz                 f=250Mhz                Regression
 
 """
 
-MAX_IDLE_CNTR = 32768 
+MAX_IDLE_CNTR = [1480, 36330]
+
 """
+MAX_IDLE_CNTR = 32768 
+Using Timer1:
 Usual idle counter values in 10MHz: 31867, 31851, 31918, 31686
 Usual idle counter values in 250MHz: 30282, 30431, 30421, 30459
+
+Using Timer2:
+Usual idle counter values in 10MHz: 1480(LOWEST_PRIORITY_VAL) - 1550(NON_CRITICAL_PRIORITY_VAL)
+Usual idle counter values in 250MHz: 36330(LOWEST_PRIORITY_VAL) - 38050(NON_CRITICAL_PRIORITY_VAL)
 """
 
 

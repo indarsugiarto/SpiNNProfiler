@@ -23,20 +23,65 @@
 #include "profiler.h"
 
 /* in readTemp(), read the sensors and put the result in val[] */
+#define MY_CODE			1
+#define PATRICK_CODE	2
+#define READING_VERSION	MY_CODE	// 1 = mine, 2 = patrick's
 void readTemp(uint ticks, uint arg2)
 {
+#if (READING_VERSION==1)
 	uint i, done, S[] = {SC_TS0, SC_TS1, SC_TS2};
+
 	for(i=0; i<3; i++) {
 		done = 0;
-		/* set S-flag to 1 and wait until F-flag change to 1 */
+		// set S-flag to 1 and wait until F-flag change to 1
 		sc[S[i]] = 0x80000000;
 		do {
 			done = sc[S[i]] & 0x01000000;
 		} while(!done);
-		/* turnoff S-flag and read the value */
+		// turnoff S-flag and read the value
 		sc[S[i]] = sc[S[i]] & 0x0FFFFFFF;
 		tempVal[i] = sc[S[i]] & 0x00FFFFFF;
 	}
+
+#elif (READING_VERSION==2)
+	uint k, temp1, temp2, temp3;
+
+	// Start tempearture measurement
+	sc[SC_TS0] = 0x80000000;
+	// Wait for measurement TS0 to finish
+	k = 0;
+	while(!(sc[SC_TS0] & (1<<24))) k++;
+	// Get value
+	temp1 = sc[SC_TS0] & 0x00ffffff;
+	// Stop measurement
+	sc[SC_TS0] = 0<<31;
+	//io_printf(IO_BUF, "k(T1):%d\n", k);
+
+	// Start tempearture measurement
+	sc[SC_TS1] = 0x80000000;
+	// Wait for measurement TS1 to finish
+	k=0;
+	while(!(sc[SC_TS1] & (1<<24))) k++;
+	// Get value
+	temp2 = sc[SC_TS1] & 0x00ffffff;
+	// Stop measurement
+	sc[SC_TS1] = 0<<31;
+	//io_printf(IO_BUF, "k(T2):%d\n", k);
+
+	// Start tempearture measurement
+	sc[SC_TS2] = 0x80000000;
+	// Wait for measurement TS2 to finish
+	k=0;
+	while(!(sc[SC_TS2] & (1<<24))) k++;
+	// Get value
+	temp3 = sc[SC_TS2] & 0x00ffffff;
+	// Stop measurement
+	sc[SC_TS2] = 0<<31;
+	//io_printf(IO_BUF, "k(T3):%d\n\n", k);
+	tempVal[0] = temp1;
+	tempVal[1] = temp2;
+	tempVal[2] = temp3;
+#endif
 }
 
 void getFreqParams(uint f, uint *ms, uint *ns)
@@ -235,11 +280,17 @@ void changePLL(uint flag, uint replyCode)
 	sendReply(replyCode, myChipID);
 }
 
+void timer1_timeout(uint tick, uint arg1)
+{
+	sark_led_set (LED_FLIP (1));			// Flip a LED
+}
+
 void updateReport(uint tick, uint arg1)
 {
 	// get the temperature sensor values in val[]
 	readTemp(tick, arg1);
-	report.seq = (ushort)myChipID;
+	//report.seq = (ushort)myChipID;
+	report.seq = (ushort)_freq;
 	report.arg1 = tempVal[0];
 	report.arg2 = tempVal[1];
 	report.arg3 = tempVal[2];
@@ -250,7 +301,6 @@ void updateReport(uint tick, uint arg1)
 	for(_idleCntr=0; _idleCntr<18; _idleCntr++)
 		cpuIdleCntr[_idleCntr] = 0;
 	myOwnIdleCntr = 0;
-	sark_led_set (LED_FLIP (1));			// Flip a LED
 
 	report.cmd_rc = SPINN_SEND_REPORT;
 	report.length = szReport;
@@ -263,21 +313,9 @@ void updateReport(uint tick, uint arg1)
 void setupTimer(uint periodT1, uint periodT2)
 {
 	// for Timer1
-	//spin1_set_timer_tick(TEMP_TIMER_TICK_PERIOD_US);
 	spin1_set_timer_tick(periodT1);
-	//spin1_callback_on(TIMER_TICK, readTemp, TEMP_TIMER_PRIORITY_VAL); //beri prioritas 1
-	spin1_callback_on(TIMER_TICK, updateReport, NON_CRITICAL_PRIORITY_VAL);
-
-	/*
-	// for Timer2
-	_freq = readSpinFreqVal();
-	spin1_update_cpu_freq_info(_freq);
-	io_printf(IO_BUF, "Got freq = %u\n", _freq);
-	spin1_set_timer2_tick(periodT2);
-	//spin1_callback_on(TIMER2_TICK, updateIdle, 1);
-	spin1_callback_on(TIMER2_TICK, updateIdle, NON_CRITICAL_PRIORITY_VAL);
-	*/
-
+	//spin1_callback_on(TIMER_TICK, updateReport, NON_CRITICAL_PRIORITY_VAL);
+	spin1_callback_on(TIMER_TICK, timer1_timeout, NON_CRITICAL_PRIORITY_VAL);
 
 	// Using interrupt example
 	ticks2 = 0;
@@ -348,6 +386,7 @@ void c_main(void)
 	report.flags = 0x07;								// no need for reply
 	report.srce_port = DEF_SPINN_SDP_PORT;
 	report.srce_addr = sv->p2p_addr;
+	//io_printf(IO_STD, "sv->p2p_addr = 0x%x\n", sv->p2p_addr);
 
 	replyMsg.tag = DEF_GENERIC_IPTAG;
 	replyMsg.dest_port = PORT_ETH;
@@ -376,11 +415,6 @@ void c_main(void)
 
 /*-------------------------------- Here are my extensions on Timer2 ---------------------------------*/
 
-void timer2_timeout(uint tick, uint arg1)
-{
-	io_printf(IO_STD, "Timer2 tick = %u with freq = %uMHz\n", ticks2, _freq);
-}
-
 /****f* spin1_isr.c/timer2_isr
 *
 * SUMMARY
@@ -401,7 +435,10 @@ INT_HANDLER isr_for_timer2 ()
 	// Increment simulation "time" and call the "longer" handler
 
 	ticks2++;
-	spin1_schedule_callback(timer2_timeout, ticks2, 0, NON_CRITICAL_PRIORITY_VAL);
+	//spin1_schedule_callback(timer2_timeout, ticks2, 0, NON_CRITICAL_PRIORITY_VAL);
+	spin1_schedule_callback(updateReport, ticks2, 0, NON_CRITICAL_PRIORITY_VAL);
+	//updateReport(ticks2, 0);
+	//sark_led_set (LED_FLIP (1));			// Flip a LED
 
 	// Ack VIC
 	//vic[VIC_VADDR] = 1;		// Tell VIC we're done
@@ -473,11 +510,11 @@ void reset_timer2 (uint _time, uint null)
 
 
   _freq = readSpinFreqVal();
-  io_printf(IO_STD, "freq = %u\n", _freq);
+  // io_printf(IO_STD, "freq = %u\n", _freq);
   // try to compensate freq under 50MHz
   iLoad = _freq * timer2_tick;
   tc[T2_LOAD] = iLoad;		// Load time in microsecs
-  io_printf(IO_STD, "iLoad = %u\n", iLoad);
+  // io_printf(IO_STD, "iLoad = %u\n", iLoad);
 }
 
 /* terminate_timer2() is modified from clean_up() and spin1_exit() */

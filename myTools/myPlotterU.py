@@ -145,10 +145,15 @@ class UPlot(Qwt.QwtPlot):
     
     @QtCore.pyqtSlot()
     def readSDP(self, datagram):       
+        """
         fmt = "<HQ2H3I18I"
         pad, hdr, cmd, seq, temp1, temp2, temp3, cpu0, cpu1, cpu2, cpu3, cpu4, cpu5, cpu6, cpu7, cpu8, cpu9, cpu10, cpu11, cpu12, cpu13, cpu14, cpu15, cpu16, cpu17 = struct.unpack(fmt, datagram)
         sax = seq >> 8
         say = seq & 0xFF
+        """
+        fmt = "<H4BH2B2H3I18I"
+        pad, flags, tag, dp, sp, da, sax, say, cmd, freq, temp1, temp2, temp3, cpu0, cpu1, cpu2, cpu3, cpu4, cpu5, cpu6, cpu7, cpu8, cpu9, cpu10, cpu11, cpu12, cpu13, cpu14, cpu15, cpu16, cpu17 = struct.unpack(fmt, datagram)
+
         chipID = sax*2+say
         cpuVal = [cpu0, cpu1, cpu2, cpu3, cpu4, cpu5, cpu6, cpu7, cpu8, cpu9, cpu10, cpu11, cpu12, cpu13, cpu14, cpu15, cpu16, cpu17]
         #self.u[chipID] = concatenate((self.u[chipID][:1], self.u[chipID][:-1]), 1)
@@ -160,7 +165,17 @@ class UPlot(Qwt.QwtPlot):
             ## TODO: change to relative 
             for i in range(18):
                 self.u[chipID][i] = concatenate((self.u[chipID][i][:1], self.u[chipID][i][:-1]), 1)
-                self.u[chipID][i][0] = (DEF.MAX_IDLE_CNTR - cpuVal[i]) * 100 / DEF.MAX_IDLE_CNTR
+                #Due to Timer2 usage, we need to scale the maximum Idle counter
+                m = (DEF.MAX_IDLE_CNTR[1] - DEF.MAX_IDLE_CNTR[0]) / (250-10)
+                b = DEF.MAX_IDLE_CNTR[1] - m*250
+                maxIdleCntr = m*freq+b
+                uVal = (maxIdleCntr - cpuVal[i]) * 100 / maxIdleCntr
+                if uVal <0:
+                    uVal = 0
+                elif uVal > 100:
+                    uVal = 100
+                self.u[chipID][i][0] = uVal
+                
 
         for i in range(18):
             self.c[i].setData(self.x, self.u[self.chipIdx][i])
@@ -168,14 +183,13 @@ class UPlot(Qwt.QwtPlot):
         
         # save to files
         if self.saveToFile is True:
+            seq = sax * 2 + say
             iVal = str(seq)
             for i in range(18):
                 cpuStr = ",%d" % cpuVal[i]
                 iVal += cpuStr
             iVal += "\n"
-            sax = seq >> 8
-            say = seq & 0xFF
-            self.Ufiles[sax*2+say].write(iVal)
+            self.Ufiles[seq].write(iVal)
         
 
     def cpuChanged(self, idx):
@@ -209,7 +223,8 @@ class UPlot(Qwt.QwtPlot):
     def saveToFileTriggered(self, state, dirName):
         if state is True:
             for i in range(self.nChip):
-                fName = dirName + '/temp.' + str(i)
+                fName = dirName + '/idle.' + str(i)
+                print "Creating file {}".format(fName)
                 self.Ufiles[i] = open(fName, 'w')
             self.saveToFile = True
 

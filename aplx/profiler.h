@@ -22,7 +22,7 @@
 void reset_timer2(uint _time, uint null);	// Indar: add this
 //void configure_timer2 (uint time);
 void terminate_timer2 (void);
-void timer2_timeout(uint tick, uint arg1);
+void timer1_timeout(uint tick, uint arg1);
 INT_HANDLER isr_for_timer2 ();
 INT_HANDLER coba_slow_timer_int();
 
@@ -42,19 +42,19 @@ uint iLoad;
 #define DEF_MY_APP_ID				255
 #define DEBUG_LEVEL					1		// 0 = no_debug, 1 = intermediate, 2 = full debug info
 
-//#define REPORT_TIMER_TICK_PERIOD_US	500000	// to get 1s resolution in FREQ_REF_100MHZ
-#define REPORT_TIMER_TICK_PERIOD_US	1000000	// to get 1s resolution in FREQ_REF_200MHZ
-//#define REPORT_TIMER_TICK_PERIOD_US	100000	// to get 0.1s resolution in FREQ_REF_200MHZ
+//#define REPORT_TIMER_TICK_PERIOD_US	1000000	// to get 1s resolution in FREQ_REF_200MHZ
+#define REPORT_TIMER_TICK_PERIOD_US	100000	// to get 0.1s resolution in FREQ_REF_200MHZ
 #define FREQ_REF_200MHZ				200
 
 // priority setup
 #define SCP_PRIORITY_VAL			0
 #define APP_PRIORITY_VAL			1
-#define LOW_PRIORIT_VAL				2
+#define LOW_PRIORITY_VAL			2
 #define TEMP_TIMER_PRIORITY_VAL		3
 #define NON_CRITICAL_PRIORITY_VAL	3
 #define LOWEST_PRIORITY_VAL			4		// I found from In spin1_api_params.h I found this: #define NUM_PRIORITIES    5
-#define IDLE_PRIORITY_VAL			NON_CRITICAL_PRIORITY_VAL
+//#define IDLE_PRIORITY_VAL			NON_CRITICAL_PRIORITY_VAL
+#define IDLE_PRIORITY_VAL			LOWEST_PRIORITY_VAL
 
 
 // SDP-related parameters
